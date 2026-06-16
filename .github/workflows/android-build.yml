@@ -22,6 +22,19 @@ jobs:
         with:
           flutter-version: '3.35.7'
 
+      - name: Accept Android SDK licenses
+        run: |
+          yes | flutter doctor --android-licenses
+          if command -v sdkmanager >/dev/null 2>&1; then
+            yes | sdkmanager --licenses
+          fi
+
+      - name: Install required Android SDK packages
+        run: |
+          if command -v sdkmanager >/dev/null 2>&1; then
+            yes | sdkmanager "platforms;android-36" "build-tools;36.0.0"
+          fi
+
       - name: Install dependencies
         run: flutter pub get
 
