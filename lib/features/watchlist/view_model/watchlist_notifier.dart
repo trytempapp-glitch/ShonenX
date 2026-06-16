@@ -278,7 +278,9 @@ class WatchlistNotifier extends Notifier<WatchListState> {
       final medias = await _localRepo.getMedias(mediaIds);
       final mediaMap = <int, Media>{};
       for (final m in medias) {
-        if (m != null) mediaMap[m.id] = m;
+        if (m != null && m.id != null) {
+          mediaMap[m.id!] = m;
+        }
       }
 
       for (final track in tracks) {

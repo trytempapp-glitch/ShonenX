@@ -333,12 +333,18 @@ class _ImportReviewDialogState extends ConsumerState<ImportReviewDialog> {
                         ),
                         const SizedBox(height: 16),
                         Expanded(
-                          child: ListView.builder(
-                            itemCount: preview.items.length,
-                            shrinkWrap: true,
-                            physics: const BouncingScrollPhysics(),
-                            itemBuilder: (context, index) {
-                              return _buildMatchCard(context, preview.items[index]);
+                          child: FutureBuilder<ImportWatchlistPreview>(
+                            future: _previewFuture,
+                            builder: (context, snapshot) {
+                              final preview = snapshot.data ?? ImportWatchlistPreview(items: [], totalCount: 0);
+                              return ListView.builder(
+                                itemCount: preview.items.length,
+                                shrinkWrap: true,
+                                physics: const BouncingScrollPhysics(),
+                                itemBuilder: (context, index) {
+                                  return _buildMatchCard(context, preview.items[index]);
+                                },
+                              );
                             },
                           ),
                         ),

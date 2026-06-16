@@ -225,7 +225,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen>
           else ...[
             IconButton(
               onPressed: _showImportDialog,
-              icon: const Icon(Iconsax.import_),
+              icon: const Icon(Iconsax.folder_open),
               tooltip: 'Import anime list',
             ),
             if (auth.isAniListAuthenticated)

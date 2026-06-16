@@ -67,6 +67,50 @@ class AnimeMatchService {
     return null;
   }
 
+  Future<MatchPreview?> findBestMatchWithScore(UniversalTitle title) async {
+    final titles = [
+      title.english,
+      title.romaji,
+      title.native,
+    ].where((t) => t != null && t.trim().isNotEmpty).cast<String>().toList();
+
+    if (titles.isEmpty) {
+      AppLogger.w("No valid title available for searching episodes.");
+      return null;
+    }
+
+    BaseAnimeModel? bestMatch;
+    double bestSimilarity = 0.0;
+
+    for (final searchTitle in titles) {
+      try {
+        final results = await search(searchTitle);
+        if (results.isEmpty) continue;
+
+        final matches = getBestMatches<BaseAnimeModel>(
+          results: results,
+          title: searchTitle,
+          nameSelector: (r) => r.name,
+          idSelector: (r) => r.id,
+        );
+
+        if (matches.isEmpty) continue;
+
+        final top = matches.first;
+        if (top.similarity > bestSimilarity) {
+          bestSimilarity = top.similarity;
+          bestMatch = top.result;
+        }
+      } catch (e) {
+        AppLogger.e('Error searching for title: $searchTitle', e);
+      }
+    }
+
+    if (bestMatch == null) return null;
+
+    return MatchPreview(match: bestMatch, similarity: bestSimilarity);
+  }
+
   /// Searches for anime using the configured source (Mangayomi or Legacy).
   Future<List<BaseAnimeModel>> search(String query) async {
     final useExtensions = _ref.read(experimentalProvider).useExtensions;
@@ -166,3 +210,11 @@ class AnimeMatchService {
     return null;
   }
 }
+
+class MatchPreview {
+  final BaseAnimeModel match;
+  final double similarity;
+
+  MatchPreview({required this.match, required this.similarity});
+}
+
