@@ -7,6 +7,7 @@ import 'package:shonenx/shared/providers/settings/ui_notifier.dart';
 import 'package:shonenx/shared/ui/shonenx_gridview.dart';
 import 'package:shonenx/features/watchlist/view/widget/watchlist_states_widgets.dart';
 import 'package:shonenx/features/watchlist/view_model/watchlist_notifier.dart';
+import 'package:shonenx/features/watchlist/view/widgets/import_review_dialog.dart';
 import 'package:shonenx/helpers/navigation.dart';
 import 'package:shonenx/shared/providers/anime_repo_provider.dart';
 
@@ -90,6 +91,26 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen>
   void dispose() {
     _controller?.dispose();
     super.dispose();
+  }
+
+  Future<void> _showImportDialog() async {
+    final result = await showDialog<ImportWatchlistResult>(
+      context: context,
+      builder: (context) => const ImportReviewDialog(),
+    );
+
+    if (result == null) return;
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Imported ${result.importedCount}/${result.totalCount} anime to ${result.status.replaceAll('_', ' ')}.',
+        ),
+      ),
+    );
+
+    ref.read(watchlistProvider.notifier).fetchListForStatus(result.status, force: true);
   }
 
   Future<void> _deleteSelected() async {
@@ -201,11 +222,18 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen>
               onPressed: _deleteSelected,
               icon: const Icon(Iconsax.trash, color: Colors.red),
             )
-          else if (auth.isAniListAuthenticated)
-            Padding(
-              padding: const EdgeInsets.only(right: 16.0),
-              child: _ModeSwitch(isLocal: isLocal),
+          else ...[
+            IconButton(
+              onPressed: _showImportDialog,
+              icon: const Icon(Iconsax.import_),
+              tooltip: 'Import anime list',
             ),
+            if (auth.isAniListAuthenticated)
+              Padding(
+                padding: const EdgeInsets.only(right: 16.0),
+                child: _ModeSwitch(isLocal: isLocal),
+              ),
+          ],
         ],
         bottom: TabBar(
           controller: _controller,
@@ -403,9 +431,10 @@ class _WatchlistTabView extends ConsumerWidget {
                             width: 4,
                           ),
                           borderRadius: BorderRadius.circular(12),
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.primary.withValues(alpha: 0.2),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withOpacity(0.2),
                         ),
                         child: Center(
                           child: Container(

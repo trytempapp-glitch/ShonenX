@@ -1,7 +1,5 @@
-import 'package:dartotsu_extension_bridge/Models/Source.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shonenx/features/extensions/view/extension_preference_screen.dart';
 import 'package:shonenx/main.dart';
 
 // Core & Models
@@ -17,7 +15,6 @@ import 'package:shonenx/features/error/view/error_screen.dart';
 import 'package:shonenx/features/home/view/watch_history_screen.dart';
 import 'package:shonenx/features/news/view/news_screen.dart';
 import 'package:shonenx/features/onboarding/view/onboarding_screen.dart';
-import 'package:shonenx/features/extensions/view/extensions_screen.dart';
 
 // Settings Features
 import 'package:shonenx/features/settings/view/screens/about_screen.dart';
@@ -100,10 +97,6 @@ final routerConfig = GoRouter(
           ],
         );
       }).toList(),
-    ),
-    AnimatedGoRoute(
-      path: '/extensions',
-      contentBuilder: (_, _) => const ExtensionScreen(),
     ),
     AnimatedGoRoute(
       path: '/news',
@@ -194,17 +187,6 @@ final routerConfig = GoRouter(
             AnimatedGoRoute(
               path: 'advanced',
               contentBuilder: (_, _) => const AdvancedPlayerSettingsScreen(),
-            ),
-          ],
-        ),
-        AnimatedGoRoute(
-          path: 'extensions',
-          contentBuilder: (_, _) => const ExtensionScreen(),
-          routes: [
-            AnimatedGoRoute(
-              path: 'extension-preference',
-              contentBuilder: (_, state) =>
-                  ExtensionPreferenceScreen(source: state.extra as Source),
             ),
           ],
         ),

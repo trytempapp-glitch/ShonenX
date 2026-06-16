@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shonenx/data/isar/track.dart';
+import 'package:shonenx/core/models/anime/anime_model.dep.dart';
 import 'package:shonenx/core/models/universal/universal_media.dart';
 import 'package:shonenx/core/models/universal/universal_media_list_entry.dart';
 import 'package:shonenx/core/repositories/anime_repository.dart';
@@ -8,6 +8,7 @@ import 'package:shonenx/core/repositories/local_media_repository.dart';
 import 'package:shonenx/shared/auth/providers/auth_notifier.dart';
 import 'package:shonenx/features/watchlist/view_model/watchlist_state.dart';
 import 'package:shonenx/shared/providers/anime_repo_provider.dart';
+import 'package:shonenx/shared/providers/anime_match_service.dart';
 import 'package:shonenx/data/isar/track.dart' as core;
 import 'package:shonenx/data/isar/media.dart';
 
@@ -92,6 +93,99 @@ class WatchlistNotifier extends Notifier<WatchListState> {
     await _localRepo.toggleFavorite(anime);
   }
 
+  AnimeMatchService get _matchService =>
+      ref.read(animeMatchServiceProvider);
+
+  Future<ImportWatchlistPreview> analyzeAnimeList(String rawText) async {
+    final titles = rawText
+        .split(RegExp(r'[\n,;]+'))
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toSet()
+        .toList();
+
+    final items = <ImportWatchlistItem>[];
+    for (final title in titles) {
+      final preview = await _matchService.findBestMatchWithScore(
+        UniversalTitle(english: title),
+      );
+
+      items.add(ImportWatchlistItem(
+        originalTitle: title,
+        matchedAnime: preview?.match,
+        similarity: preview?.similarity ?? 0.0,
+        selected: preview != null,
+      ));
+    }
+
+    return ImportWatchlistPreview(
+      items: items,
+      totalCount: items.length,
+    );
+  }
+
+  Future<ImportWatchlistResult> saveSelectedItems(
+    List<ImportWatchlistItem> selectedItems,
+    String status,
+  ) async {
+    var importedCount = 0;
+    final savedTitles = <String>[];
+    final failedTitles = <String>[];
+
+    for (final item in selectedItems) {
+      if (!item.selected || item.matchedAnime == null) continue;
+      try {
+        final media = _mapMatchToUniversalMedia(item.matchedAnime!, item.originalTitle);
+        await _localRepo.saveEntry(
+          media,
+          status: status,
+          score: 0,
+          progress: 0,
+          repeat: 0,
+          notes: '',
+          isPrivate: false,
+        );
+        importedCount++;
+        savedTitles.add(item.matchedAnime!.name ?? item.originalTitle);
+      } catch (_) {
+        failedTitles.add(item.originalTitle);
+      }
+    }
+
+    return ImportWatchlistResult(
+      importedCount: importedCount,
+      totalCount: selectedItems.length,
+      savedTitles: savedTitles,
+      failedTitles: failedTitles,
+      status: status,
+    );
+  }
+
+  UniversalMedia _mapMatchToUniversalMedia(
+    BaseAnimeModel match,
+    String originalTitle,
+  ) {
+    return UniversalMedia(
+      id: match.id ?? originalTitle,
+      idMal: null,
+      title: UniversalTitle(
+        english: match.name ?? originalTitle,
+        romaji: match.name,
+      ),
+      coverImage: UniversalCoverImage(
+        large: match.poster,
+        medium: match.poster,
+      ),
+      bannerImage: match.banner,
+      format: match.type,
+      status: 'PLANNING',
+      description: match.description,
+      episodes: match.episodes?.total,
+      source: match.url,
+      siteUrl: match.url,
+    );
+  }
+
   Future<WatchListState> fetchListForStatus(
     String status, {
     bool force = false,
@@ -167,7 +261,7 @@ class WatchlistNotifier extends Notifier<WatchListState> {
       final entries = medias.map((m) => _mapMediaToUniversal(m)).toList();
       state = state.copyWith(favorites: entries);
     } else {
-      TrackStatus? trackStatus = _mapStatus(status);
+      core.TrackStatus? trackStatus = _mapStatus(status);
       if (trackStatus == null) {
         state = state.copyWith(lists: {...state.lists, status: []});
         return state;
@@ -182,7 +276,10 @@ class WatchlistNotifier extends Notifier<WatchListState> {
           .toList();
 
       final medias = await _localRepo.getMedias(mediaIds);
-      final mediaMap = {for (var m in medias) m?.id: ?m};
+      final mediaMap = <int, Media>{};
+      for (final m in medias) {
+        if (m != null) mediaMap[m.id] = m;
+      }
 
       for (final track in tracks) {
         final int mediaId = int.tryParse(track.mediaId ?? '') ?? 0;
@@ -230,21 +327,21 @@ class WatchlistNotifier extends Notifier<WatchListState> {
 
   // Helpers
 
-  TrackStatus? _mapStatus(String status) {
+  core.TrackStatus? _mapStatus(String status) {
     switch (status.toLowerCase()) {
       case 'watching':
       case 'current':
-        return TrackStatus.watching;
+        return core.TrackStatus.watching;
       case 'completed':
-        return TrackStatus.completed;
+        return core.TrackStatus.completed;
       case 'on_hold':
       case 'onhold':
-        return TrackStatus.onHold;
+        return core.TrackStatus.onHold;
       case 'dropped':
-        return TrackStatus.dropped;
+        return core.TrackStatus.dropped;
       case 'plan_to_watch':
       case 'planning':
-        return TrackStatus.planToWatch;
+        return core.TrackStatus.planToWatch;
       default:
         return null;
     }
@@ -265,6 +362,46 @@ class WatchlistNotifier extends Notifier<WatchListState> {
 
   UniversalMedia _mapMediaToUniversal(Media media) =>
       _localRepo.mapMediaToUniversal(media);
+}
+
+class ImportWatchlistItem {
+  final String originalTitle;
+  final BaseAnimeModel? matchedAnime;
+  final double similarity;
+  bool selected;
+
+  ImportWatchlistItem({
+    required this.originalTitle,
+    this.matchedAnime,
+    required this.similarity,
+    this.selected = true,
+  });
+}
+
+class ImportWatchlistPreview {
+  final List<ImportWatchlistItem> items;
+  final int totalCount;
+
+  ImportWatchlistPreview({
+    required this.items,
+    required this.totalCount,
+  });
+}
+
+class ImportWatchlistResult {
+  final int importedCount;
+  final int totalCount;
+  final List<String> savedTitles;
+  final List<String> failedTitles;
+  final String status;
+
+  ImportWatchlistResult({
+    required this.importedCount,
+    required this.totalCount,
+    required this.savedTitles,
+    required this.failedTitles,
+    required this.status,
+  });
 }
 
 final watchlistProvider = NotifierProvider<WatchlistNotifier, WatchListState>(

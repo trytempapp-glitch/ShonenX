@@ -97,17 +97,6 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-                if (experimental.useExtensions)
-                  NormalSettingsItem(
-                    icon: Icon(
-                      Icons.extension_outlined,
-                      color: colorScheme.primary,
-                    ),
-                    accent: colorScheme.primary,
-                    title: 'Extensions (💀)',
-                    description: 'Manage your extensions',
-                    onTap: () => context.push('/settings/extensions'),
-                  ),
                 NormalSettingsItem(
                   icon: Icon(Iconsax.video_play, color: colorScheme.primary),
                   accent: colorScheme.primary,
